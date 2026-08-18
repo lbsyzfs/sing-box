@@ -251,6 +251,7 @@ func (s *sharedNetwork) runFlowJanitor(ctx context.Context, done chan<- struct{}
 	lastSweep := time.Now()
 	var lastReservationFailures uint64
 	scanInProgress := false
+	attachmentActive := s.tcManager != nil && s.tcManager.isEnabled()
 	for {
 		select {
 		case <-ctx.Done():
@@ -261,6 +262,17 @@ func (s *sharedNetwork) runFlowJanitor(ctx context.Context, done chan<- struct{}
 		backend := s.sharedBackendInstance()
 		if backend == nil {
 			return
+		}
+		if s.tcManager == nil || !s.tcManager.isEnabled() {
+			attachmentActive = false
+			pressure = false
+			belowExitRounds = 0
+			scanInProgress = false
+			continue
+		}
+		if !attachmentActive {
+			attachmentActive = true
+			lastSweep = time.Time{}
 		}
 		reservationPressure := false
 		pollStarted := time.Now()
