@@ -183,6 +183,7 @@ func (s *sharedNetwork) releaseFlow(flow *ECommon.SharedNetworkFlowHandle) {
 }
 
 type sharedPacketWriter struct {
+	debug         eBPFDebugUDPWriterState
 	sharedNetwork *sharedNetwork
 	client        netip.AddrPort
 	clientState   *udpClientState
@@ -192,9 +193,19 @@ func (w *sharedPacketWriter) WritePacket(buffer *buf.Buffer, destination M.Socks
 	defer buffer.Release()
 	w.sharedNetwork.lifecycleAccess.RLock()
 	defer w.sharedNetwork.lifecycleAccess.RUnlock()
-	binding, loaded := w.clientState.redirectBinding(destination.AddrPort())
+	destinationAddress := destination.AddrPort()
+	binding, loaded := w.clientState.redirectBinding(destinationAddress)
 	if !loaded {
 		w.sharedNetwork.inbound.diagnostics.sharedUDPBindingMiss.Add(1)
+		w.sharedNetwork.inbound.debug.observeUDPBindingMiss(
+			&w.debug,
+			true,
+			w.sharedNetwork.inbound.logger,
+			&w.sharedNetwork.udpClientTable,
+			w.client,
+			destinationAddress,
+			w.clientState,
+		)
 		return E.New("missing shared-network UDP token for ", destination)
 	}
 	return w.sharedNetwork.listeners.writeUDP(buffer.Bytes(), binding.packetInfo, w.client, binding.address)

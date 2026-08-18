@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	httpPProf "net/http/pprof"
+	"net/netip"
 	"os"
 	"runtime"
 	"strconv"
@@ -31,6 +32,32 @@ type eBPFDebugState struct {
 	sharedAttachmentReconcile eBPFDebugTaskMetric
 	ipv6RouteProbe            eBPFDebugTaskMetric
 	runtimeStatusCollection   eBPFDebugTaskMetric
+	localUDPBindingMiss       eBPFDebugUDPBindingMissMetric
+	sharedUDPBindingMiss      eBPFDebugUDPBindingMissMetric
+}
+
+type eBPFDebugUDPWriterState struct {
+	missed atomic.Bool
+}
+
+type eBPFDebugUDPBindingMissMetric struct {
+	connectedPackets    atomic.Uint64
+	unconnectedPackets  atomic.Uint64
+	connectedSessions   atomic.Uint64
+	unconnectedSessions atomic.Uint64
+	warnings            warningLimiter
+}
+
+type eBPFDebugUDPBindingMissPathSnapshot struct {
+	ConnectedPackets    uint64 `json:"connected_packets"`
+	UnconnectedPackets  uint64 `json:"unconnected_packets"`
+	ConnectedSessions   uint64 `json:"connected_sessions"`
+	UnconnectedSessions uint64 `json:"unconnected_sessions"`
+}
+
+type eBPFDebugUDPBindingMissSnapshot struct {
+	Local  eBPFDebugUDPBindingMissPathSnapshot `json:"local"`
+	Shared eBPFDebugUDPBindingMissPathSnapshot `json:"shared"`
 }
 
 type eBPFDebugTaskMetric struct {
@@ -63,9 +90,10 @@ type eBPFDebugGoRuntimeSnapshot struct {
 }
 
 type eBPFDebugSnapshot struct {
-	Build       bool                             `json:"build"`
-	GoRuntime   eBPFDebugGoRuntimeSnapshot       `json:"go_runtime"`
-	Maintenance map[string]eBPFDebugTaskSnapshot `json:"maintenance"`
+	Build          bool                             `json:"build"`
+	GoRuntime      eBPFDebugGoRuntimeSnapshot       `json:"go_runtime"`
+	Maintenance    map[string]eBPFDebugTaskSnapshot `json:"maintenance"`
+	UDPBindingMiss eBPFDebugUDPBindingMissSnapshot  `json:"udp_binding_miss"`
 }
 
 func (d *eBPFDebugState) observe(task string, duration time.Duration, err error) {
@@ -116,6 +144,77 @@ func (m *eBPFDebugTaskMetric) snapshot() eBPFDebugTaskSnapshot {
 	}
 }
 
+func (m *eBPFDebugUDPBindingMissMetric) observe(writer *eBPFDebugUDPWriterState, connected bool) bool {
+	if connected {
+		m.connectedPackets.Add(1)
+	} else {
+		m.unconnectedPackets.Add(1)
+	}
+	if !writer.missed.CompareAndSwap(false, true) {
+		return false
+	}
+	if connected {
+		m.connectedSessions.Add(1)
+	} else {
+		m.unconnectedSessions.Add(1)
+	}
+	return true
+}
+
+func (m *eBPFDebugUDPBindingMissMetric) snapshot() eBPFDebugUDPBindingMissPathSnapshot {
+	return eBPFDebugUDPBindingMissPathSnapshot{
+		ConnectedPackets:    m.connectedPackets.Load(),
+		UnconnectedPackets:  m.unconnectedPackets.Load(),
+		ConnectedSessions:   m.connectedSessions.Load(),
+		UnconnectedSessions: m.unconnectedSessions.Load(),
+	}
+}
+
+func (d *eBPFDebugState) observeUDPBindingMiss(
+	writer *eBPFDebugUDPWriterState,
+	shared bool,
+	logger log.ContextLogger,
+	table *udpClientTable,
+	client netip.AddrPort,
+	destination netip.AddrPort,
+	state *udpClientState,
+) {
+	metric := &d.localUDPBindingMiss
+	path := "local"
+	if shared {
+		metric = &d.sharedUDPBindingMiss
+		path = "shared"
+	}
+	state.access.RLock()
+	connected := state.connected
+	connectedDestination := state.connectedDestination
+	bindingCount := len(state.bindings)
+	originalCount := len(state.originals)
+	state.access.RUnlock()
+	if !metric.observe(writer, connected) || logger == nil {
+		return
+	}
+	currentState, loaded := table.load(client)
+	allowed, suppressed := metric.warnings.allow(time.Now())
+	if !allowed {
+		return
+	}
+	args := []any{
+		"eBPF debug UDP binding miss: path=", path,
+		" client=", client,
+		" requested_destination=", destination,
+		" connected=", connected,
+		" connected_destination=", connectedDestination,
+		" bindings=", bindingCount,
+		" originals=", originalCount,
+		" state_current=", loaded && currentState == state,
+	}
+	if suppressed > 0 {
+		args = append(args, " (", suppressed, " unique sessions suppressed)")
+	}
+	logger.Debug(args...)
+}
+
 func (d *eBPFDebugState) snapshot() *eBPFDebugSnapshot {
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
@@ -141,6 +240,10 @@ func (d *eBPFDebugState) snapshot() *eBPFDebugSnapshot {
 			ebpfDebugTaskSharedAttachmentReconcile: d.sharedAttachmentReconcile.snapshot(),
 			ebpfDebugTaskIPv6RouteProbe:            d.ipv6RouteProbe.snapshot(),
 			ebpfDebugTaskRuntimeStatusCollection:   d.runtimeStatusCollection.snapshot(),
+		},
+		UDPBindingMiss: eBPFDebugUDPBindingMissSnapshot{
+			Local:  d.localUDPBindingMiss.snapshot(),
+			Shared: d.sharedUDPBindingMiss.snapshot(),
 		},
 	}
 }

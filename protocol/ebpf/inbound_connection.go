@@ -235,6 +235,7 @@ func (i *Inbound) socketControl(ipv6Listener bool) control.Func {
 }
 
 type udpPacketWriter struct {
+	debug       eBPFDebugUDPWriterState
 	inbound     *Inbound
 	client      netip.AddrPort
 	clientState *udpClientState
@@ -242,9 +243,19 @@ type udpPacketWriter struct {
 
 func (w *udpPacketWriter) WritePacket(buffer *buf.Buffer, destination M.Socksaddr) error {
 	defer buffer.Release()
-	binding, loaded := w.clientState.redirectBinding(destination.AddrPort())
+	destinationAddress := destination.AddrPort()
+	binding, loaded := w.clientState.redirectBinding(destinationAddress)
 	if !loaded {
 		w.inbound.diagnostics.localUDPBindingMiss.Add(1)
+		w.inbound.debug.observeUDPBindingMiss(
+			&w.debug,
+			false,
+			w.inbound.logger,
+			&w.inbound.udpClientTable,
+			w.client,
+			destinationAddress,
+			w.clientState,
+		)
 		return E.New("missing UDP redirect binding for ", destination)
 	}
 	return w.inbound.listeners.writeUDP(buffer.Bytes(), binding.packetInfo, w.client, binding.address)

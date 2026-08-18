@@ -25,6 +25,22 @@ func TestEBPFDebugStateSnapshot(t *testing.T) {
 	if snapshot.GoRuntime.Goroutines == 0 || snapshot.GoRuntime.SysBytes == 0 {
 		t.Fatalf("incomplete Go runtime snapshot: %+v", snapshot.GoRuntime)
 	}
+	var localWriter eBPFDebugUDPWriterState
+	if !state.localUDPBindingMiss.observe(&localWriter, false) ||
+		state.localUDPBindingMiss.observe(&localWriter, false) {
+		t.Fatal("unexpected local UDP binding miss session classification")
+	}
+	var sharedWriter eBPFDebugUDPWriterState
+	if !state.sharedUDPBindingMiss.observe(&sharedWriter, true) {
+		t.Fatal("unexpected shared UDP binding miss session classification")
+	}
+	snapshot = state.snapshot()
+	if snapshot.UDPBindingMiss.Local.UnconnectedPackets != 2 ||
+		snapshot.UDPBindingMiss.Local.UnconnectedSessions != 1 ||
+		snapshot.UDPBindingMiss.Shared.ConnectedPackets != 1 ||
+		snapshot.UDPBindingMiss.Shared.ConnectedSessions != 1 {
+		t.Fatalf("unexpected UDP binding miss snapshot: %+v", snapshot.UDPBindingMiss)
+	}
 }
 
 func TestEBPFDebugPProfMux(t *testing.T) {
