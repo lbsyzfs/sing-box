@@ -25,6 +25,9 @@ func TestSharedNetworkABI(t *testing.T) {
 	if size := unsafe.Sizeof(sharedNetworkReplyKey{}); size != 44 {
 		t.Fatalf("unexpected shared-network reply key size: %d", size)
 	}
+	if size := unsafe.Sizeof(sharedNetworkReplyValue{}); size != sharedNetworkReplyValueSize {
+		t.Fatalf("unexpected shared-network reply value size: %d", size)
+	}
 	if size := unsafe.Sizeof(sharedNetworkOriginalValue{}); size != 36 {
 		t.Fatalf("unexpected shared-network original value size: %d", size)
 	}

@@ -247,18 +247,51 @@ func (w *udpPacketWriter) WritePacket(buffer *buf.Buffer, destination M.Socksadd
 	binding, loaded := w.clientState.redirectBinding(destinationAddress)
 	if !loaded {
 		w.inbound.diagnostics.localUDPBindingMiss.Add(1)
-		w.inbound.debug.observeUDPBindingMiss(
-			&w.debug,
-			false,
-			w.inbound.logger,
-			&w.inbound.udpClientTable,
-			w.client,
-			destinationAddress,
-			w.clientState,
-		)
-		return E.New("missing UDP redirect binding for ", destination)
+		var err error
+		binding, err = w.reserveReplyBinding(destinationAddress)
+		if err != nil {
+			w.inbound.debug.observeUDPBindingMiss(
+				&w.debug,
+				false,
+				w.inbound.logger,
+				&w.inbound.udpClientTable,
+				w.client,
+				destinationAddress,
+				w.clientState,
+			)
+			return E.Cause(err, "recover missing UDP redirect binding for ", destination)
+		}
+		w.inbound.diagnostics.localUDPBindingRecovery.Add(1)
 	}
 	return w.inbound.listeners.writeUDP(buffer.Bytes(), binding.packetInfo, w.client, binding.address)
+}
+
+func (w *udpPacketWriter) reserveReplyBinding(destination netip.AddrPort) (udpRedirectBinding, error) {
+	if _, available := w.clientState.replyTemplate(destination, false); !available {
+		return udpRedirectBinding{}, E.New("UDP reply alias limit reached or address family unavailable")
+	}
+	backend := w.inbound.cgroupBackendInstance()
+	if backend == nil {
+		return udpRedirectBinding{}, E.New("eBPF backend is closed")
+	}
+	redirectAddress, err := backend.ReserveUDPReplyRedirect(destination, w.inbound.listeners.selectedPort())
+	if err != nil {
+		return udpRedirectBinding{}, err
+	}
+	released, installed := w.inbound.udpClientTable.setReplyBinding(
+		w.client,
+		w.clientState,
+		destination,
+		redirectAddress,
+	)
+	if !installed {
+		released = append(released, redirectAddress)
+	}
+	w.inbound.deleteUDPRedirects(released)
+	if binding, loaded := w.clientState.redirectBinding(destination); loaded {
+		return binding, nil
+	}
+	return udpRedirectBinding{}, E.New("UDP session closed or reply alias was rejected")
 }
 
 func redirectAddressFromOOB(oob []byte) (netip.Addr, error) {

@@ -50,6 +50,7 @@ type SharedNetworkBackend struct {
 	access              sync.RWMutex
 	health              backendHealth
 	flowAccess          sync.Mutex
+	replyTokenSequence  atomic.Uint64
 	flowReferences      map[SharedNetworkFlowHandle]uint32
 	flowSweepAccess     sync.Mutex
 	flowSweepScratch    mapScanScratch[sharedNetworkOriginalKey, sharedNetworkTokenValue]
