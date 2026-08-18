@@ -167,9 +167,9 @@ func (s *sharedNetwork) newListener(network string, ipv6Listener bool, port uint
 }
 
 func (s *sharedNetwork) InterfaceUpdated() {
-	s.udpNat.Purge()
 	s.lifecycleAccess.RLock()
 	defer s.lifecycleAccess.RUnlock()
+	s.udpNat.Purge()
 	if manager := s.tcManager; manager != nil {
 		manager.Wake()
 	}
@@ -182,21 +182,28 @@ func (s *sharedNetwork) Close() error {
 	s.lifecycleAccess.Lock()
 	defer s.lifecycleAccess.Unlock()
 	s.stopFlowJanitor()
-	s.udpNat.Purge()
+	backend := s.takeSharedBackend()
 	if s.tcManager != nil {
 		if err := s.tcManager.Close(); err != nil {
+			s.setSharedBackend(backend)
 			return err
 		}
 		s.tcManager = nil
 	}
 	var backendErr error
-	if backend := s.sharedBackendInstance(); backend != nil {
+	if backend != nil {
 		backendErr = backend.Close()
-		if backend.IsClosed() {
-			s.setSharedBackend(nil)
+		if !backend.IsClosed() {
+			s.setSharedBackend(backend)
+			if backendErr == nil {
+				backendErr = E.New("shared-network eBPF backend remained open after close")
+			}
+			return backendErr
 		}
 	}
-	return E.Errors(backendErr, s.closeListeners())
+	listenerErr := s.closeListeners()
+	s.udpNat.Purge()
+	return E.Errors(backendErr, listenerErr)
 }
 
 func (s *sharedNetwork) closeListeners() error {
@@ -216,6 +223,14 @@ func (s *sharedNetwork) sharedBackendInstance() *ECommon.SharedNetworkBackend {
 	s.backendAccess.RLock()
 	defer s.backendAccess.RUnlock()
 	return s.sharedBackend
+}
+
+func (s *sharedNetwork) takeSharedBackend() *ECommon.SharedNetworkBackend {
+	s.backendAccess.Lock()
+	backend := s.sharedBackend
+	s.sharedBackend = nil
+	s.backendAccess.Unlock()
+	return backend
 }
 
 func (s *sharedNetwork) setSharedBackend(backend *ECommon.SharedNetworkBackend) {

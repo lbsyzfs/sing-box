@@ -200,9 +200,19 @@ func (i *Inbound) deleteUDPRedirects(redirectAddresses []netip.Addr) {
 	if backend == nil {
 		return
 	}
+	i.deleteUDPRedirectsWithBackend(backend, redirectAddresses)
+}
+
+func (i *Inbound) deleteUDPRedirectsWithBackend(
+	backend *ECommon.CgroupBackend,
+	redirectAddresses []netip.Addr,
+) {
 	for _, redirectAddress := range redirectAddresses {
 		redirectDestination := netip.AddrPortFrom(redirectAddress, i.listeners.selectedPort())
 		if err := backend.DeleteRedirect(ECommon.ProtocolUDP, redirectDestination); err != nil {
+			if errors.Is(err, unix.EBADF) && i.cgroupBackendInstance() != backend {
+				continue
+			}
 			i.diagnostics.localUDPCleanupError.Add(1)
 			i.udpWarnings.cleanup.warn(i.logger, "delete UDP redirect mapping for ", redirectDestination, ": ", err)
 		}
