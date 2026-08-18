@@ -20,7 +20,7 @@ jobs:
           - goarch: "386"
             compiler: i686-linux-android35-clang
     env:
-      TAGS: with_gvisor,with_quic,with_dhcp,with_utls,with_clash_api,with_ebpf,badlinkname,tfogo_checklinkname0
+      TAGS: with_gvisor,with_quic,with_dhcp,with_utls,with_clash_api,with_ebpf,ebpf_debug,badlinkname,tfogo_checklinkname0
     steps:
       - name: Checkout
         uses: actions/checkout@v6
