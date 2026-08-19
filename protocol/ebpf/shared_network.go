@@ -129,25 +129,27 @@ func (s *sharedNetwork) prepareBackend(cgroupBackend *ECommon.CgroupBackend) (*E
 	if err != nil {
 		return nil, err
 	}
-	s.setSharedBackend(backend)
 	if cgroupBackend == nil {
-		policy := s.inbound.currentBypassCIDRPolicy()
+		s.inbound.bypassRuleSetAccess.Lock()
+		policy := s.inbound.bypassRuleSetPolicy
 		updateStarted := s.inbound.debug.bypassPolicyOperationStarted()
 		_, err = backend.UpdateCompiledBypassCIDR(policy)
 		s.inbound.debug.observeBypassPolicyUpdate(updateStarted, err)
 		if err != nil {
+			s.inbound.bypassRuleSetAccess.Unlock()
 			closeErr := backend.Close()
-			s.takeSharedBackend()
 			return nil, E.Errors(err, closeErr)
 		}
-		s.inbound.markBypassCIDRPolicyApplied()
+		s.inbound.bypassRuleSetDirty = false
+		s.setSharedBackend(backend)
+		s.inbound.bypassRuleSetAccess.Unlock()
 	} else {
 		ipv4Count, ipv6Count := cgroupBackend.BypassCIDRCount()
 		if err = backend.SetBypassCIDRState(ipv4Count, ipv6Count); err != nil {
 			closeErr := backend.Close()
-			s.takeSharedBackend()
 			return nil, E.Errors(err, closeErr)
 		}
+		s.setSharedBackend(backend)
 	}
 	return backend, nil
 }

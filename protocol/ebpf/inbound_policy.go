@@ -168,18 +168,6 @@ func (i *Inbound) compileBypassCIDRPolicy(prefixes []netip.Prefix) (ECommon.Bypa
 	return policy, nil
 }
 
-func (i *Inbound) currentBypassCIDRPolicy() ECommon.BypassCIDRPolicy {
-	i.bypassRuleSetAccess.Lock()
-	defer i.bypassRuleSetAccess.Unlock()
-	return i.bypassRuleSetPolicy
-}
-
-func (i *Inbound) markBypassCIDRPolicyApplied() {
-	i.bypassRuleSetAccess.Lock()
-	i.bypassRuleSetDirty = false
-	i.bypassRuleSetAccess.Unlock()
-}
-
 func (i *Inbound) localInterfaceAddresses() []netip.Addr {
 	prefixes := localInterfacePrefixes(i.networkManager.InterfaceFinder().Interfaces())
 	addresses := make([]netip.Addr, len(prefixes))
