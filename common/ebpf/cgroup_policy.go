@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	maxUIDPolicyEntries        = 4096
-	maxBypassCIDRPolicyEntries = 65536
+	maxUIDPolicyEntries         = 4096
+	maxBypassCIDRPolicyEntries  = 65536
+	maxHostAddressPolicyEntries = 65536
 )
 
 type CgroupPolicy struct {

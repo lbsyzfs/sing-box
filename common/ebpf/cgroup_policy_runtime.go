@@ -126,7 +126,7 @@ func (b *CgroupBackend) UpdateHostAddresses(addresses []netip.Addr) error {
 		return errBackendClosed
 	}
 	ipv4, ipv6 := compileHostPrefixes(addresses)
-	if len(ipv4) > 256 || len(ipv6) > 256 {
+	if len(ipv4) > maxHostAddressPolicyEntries || len(ipv6) > maxHostAddressPolicyEntries {
 		return E.New("local cgroup host address policy exceeds eBPF map capacity")
 	}
 	b.access.Lock()

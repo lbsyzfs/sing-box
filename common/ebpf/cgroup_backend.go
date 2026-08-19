@@ -323,8 +323,8 @@ func prepareCgroupMaps(runtimeState *cgroupRuntime, capacity CgroupMapCapacity, 
 		"cgroup_uid_policy":     {name: "sb_cg_uid", mapType: CiliumEBPF.LPMTrie, maxEntries: uidCapacity, flags: bpfFlagNoPrealloc},
 		"cgroup_bypass_ipv4":    {name: "sb_cg_bypass4", mapType: CiliumEBPF.LPMTrie, maxEntries: maxBypassCIDRPolicyEntries, flags: bpfFlagNoPrealloc},
 		"cgroup_bypass_ipv6":    {name: "sb_cg_bypass6", mapType: CiliumEBPF.LPMTrie, maxEntries: maxBypassCIDRPolicyEntries, flags: bpfFlagNoPrealloc},
-		"cgroup_host_ipv4":      {name: "sb_cg_host4", mapType: CiliumEBPF.Hash, maxEntries: 256},
-		"cgroup_host_ipv6":      {name: "sb_cg_host6", mapType: CiliumEBPF.Hash, maxEntries: 256},
+		"cgroup_host_ipv4":      {name: "sb_cg_host4", mapType: CiliumEBPF.Hash, maxEntries: maxHostAddressPolicyEntries, flags: bpfFlagNoPrealloc},
+		"cgroup_host_ipv6":      {name: "sb_cg_host6", mapType: CiliumEBPF.Hash, maxEntries: maxHostAddressPolicyEntries, flags: bpfFlagNoPrealloc},
 		"cgroup_ipv6_available": {name: "sb_cg_ipv6", mapType: CiliumEBPF.Array, maxEntries: 1},
 	})
 	if err != nil {
