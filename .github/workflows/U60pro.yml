@@ -1,0 +1,80 @@
+name: Build U60 Pro eBPF Debug
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    env:
+      GOOS: linux
+      GOARCH: arm64
+      CGO_ENABLED: "0"
+
+      TAGS: with_gvisor,with_quic,with_dhcp,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0,with_provider,with_ebpf,ebpf_debug
+
+    steps:
+      - name: Checkout testing-ebpf-cilium
+        uses: actions/checkout@v6
+        with:
+          repository: lbsyzfs/sing-box
+          ref: testing-ebpf-cilium
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+
+      - name: Show build info
+        run: |
+          echo "Commit:"
+          git rev-parse HEAD
+
+          echo
+          go version
+
+          echo
+          echo "GOOS=$GOOS"
+          echo "GOARCH=$GOARCH"
+          echo "CGO_ENABLED=$CGO_ENABLED"
+          echo "TAGS=$TAGS"
+
+      - name: Build U60 Pro eBPF Debug
+        run: |
+          make build
+
+          mv sing-box sing-box-u60pro-arm64-ebpf-debug
+          chmod +x sing-box-u60pro-arm64-ebpf-debug
+
+      - name: Verify
+        run: |
+          file sing-box-u60pro-arm64-ebpf-debug
+
+          echo
+          echo "ELF header:"
+          readelf -h sing-box-u60pro-arm64-ebpf-debug
+
+          echo
+          echo "Dynamic interpreter:"
+          if readelf -l sing-box-u60pro-arm64-ebpf-debug | grep -q "Requesting program interpreter"; then
+            readelf -l sing-box-u60pro-arm64-ebpf-debug | grep "Requesting program interpreter"
+          else
+            echo "OK: static / no dynamic interpreter"
+          fi
+
+      - name: SHA256
+        run: |
+          sha256sum sing-box-u60pro-arm64-ebpf-debug \
+            > sing-box-u60pro-arm64-ebpf-debug.sha256
+
+          cat sing-box-u60pro-arm64-ebpf-debug.sha256
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: sing-box-u60pro-arm64-ebpf-debug
+          path: |
+            sing-box-u60pro-arm64-ebpf-debug
+            sing-box-u60pro-arm64-ebpf-debug.sha256
