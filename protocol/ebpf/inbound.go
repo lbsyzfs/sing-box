@@ -101,6 +101,9 @@ type Inbound struct {
 	udpClientTable      udpClientTable
 	udpWarnings         udpWarningLimiters
 	tcpWarnings         warningLimiter
+	unexpectedTCPWarn   warningLimiter
+	policyWarnings      warningLimiter
+	ipv6Warnings        warningLimiter
 	tcpJanitorWarn      warningLimiter
 	runtimeStatusWarn   warningLimiter
 	tcpJanitorStop      context.CancelFunc

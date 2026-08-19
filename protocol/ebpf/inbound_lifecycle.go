@@ -69,9 +69,6 @@ func (i *Inbound) Start(stage adapter.StartStage) error {
 			if i.enableTCP {
 				i.startTCPRedirectJanitor()
 			}
-			if i.cgroupIPv6Mode == cgroupIPv6ModeAuto && i.cgroupIPv6Enabled() {
-				i.logger.Debug("eBPF local cgroup IPv6 interception: available=", i.cgroupIPv6Available)
-			}
 			bypassIPv4Count, bypassIPv6Count := backend.BypassCIDRCount()
 			selfBypassMode := backend.SelfBypassMode()
 			socketBypassCapacity := i.cgroupMapCapacity.SocketBypass
@@ -85,14 +82,16 @@ func (i *Inbound) Start(stage adapter.StartStage) error {
 				", ipv6_mode=", i.cgroupIPv6Mode,
 				", ipv6_active=", i.cgroupIPv6Active(),
 				", bypass_private_address=", i.localBypassPrivateAddress,
-				", fakeip_force=[", i.fakeIPPrefixString(), "]",
-				", self_bypass=", selfBypassMode,
 				", udp_state_cleanup=", backend.UDPCleanupMode(),
-				", internal_redirect_prefix=[", strings.Join(i.redirectAddressStrings(), ", "), "]",
 				", uid_policy={include_configured:", i.cgroupPolicy.IncludeUIDConfigured,
 				", include:[", formatUIDRanges(i.cgroupPolicy.IncludeUID), "]",
 				", exclude:[", formatUIDRanges(i.cgroupPolicy.ExcludeUID), "]}",
 				", bypass_cidr={ipv4:", bypassIPv4Count, ", ipv6:", bypassIPv6Count, "}",
+			)
+			i.logger.Debug(
+				"eBPF local cgroup details: fakeip_force=[", i.fakeIPPrefixString(), "]",
+				", self_bypass=", selfBypassMode,
+				", internal_redirect_prefix=[", strings.Join(i.redirectAddressStrings(), ", "), "]",
 				", state_capacity={tcp_redirect:", i.cgroupMapCapacity.TCPRedirect,
 				", udp_redirect:", i.cgroupMapCapacity.UDPRedirect,
 				", socket_bypass:", socketBypassCapacity, "}",

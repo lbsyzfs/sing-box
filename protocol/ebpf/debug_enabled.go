@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	ebpfRuntimeStatusInterval = time.Minute
+	ebpfRuntimeStatusInterval = 5 * time.Minute
 	ebpfDebugPProfPortEnv     = "SING_BOX_EBPF_PPROF_PORT"
 )
 
