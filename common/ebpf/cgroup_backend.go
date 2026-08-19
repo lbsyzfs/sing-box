@@ -292,10 +292,10 @@ func PrepareCgroup(config CgroupConfig) (*CgroupBackend, error) {
 }
 
 func prepareCgroupMaps(runtimeState *cgroupRuntime, capacity CgroupMapCapacity, uidEntries int) error {
-	udpMapType, udpMapFlags, flowCapacity := cgroupUDPMapConfiguration(
+	udpLayout := cgroupUDPMapConfiguration(
 		runtimeState.enable_udp,
 		runtimeState.socket_release_supported,
-		capacity.UDPRedirect,
+		capacity,
 	)
 	tcpCapacity := uint32(1)
 	udpCapacity := uint32(1)
@@ -315,11 +315,11 @@ func prepareCgroupMaps(runtimeState *cgroupRuntime, capacity CgroupMapCapacity, 
 		"cgroup_control":        {name: "sb_cg_control", mapType: CiliumEBPF.Array, maxEntries: 1},
 		"cgroup_stats":          {name: "sb_cg_stats", mapType: CiliumEBPF.Array, maxEntries: 2},
 		"cgroup_tcp_redirect":   {name: "sb_cg_tcp", mapType: CiliumEBPF.Hash, maxEntries: tcpCapacity, flags: bpfFlagNoPrealloc},
-		"cgroup_udp_redirect":   {name: "sb_cg_udp", mapType: udpMapType, maxEntries: udpCapacity, flags: udpMapFlags},
+		"cgroup_udp_redirect":   {name: "sb_cg_udp", mapType: udpLayout.cleanupType, maxEntries: udpCapacity, flags: udpLayout.cleanupFlags},
 		"cgroup_udp_recovery":   {name: "sb_cg_recover", mapType: CiliumEBPF.LRUHash, maxEntries: recoveryCapacity},
-		"cgroup_udp_token":      {name: "sb_cg_token", mapType: udpMapType, maxEntries: udpCapacity, flags: udpMapFlags},
-		"cgroup_udp_peer":       {name: "sb_cg_peer", mapType: CiliumEBPF.LRUHash, maxEntries: udpCapacity},
-		"cgroup_udp_flow":       {name: "sb_cg_flow", mapType: CiliumEBPF.LRUHash, maxEntries: flowCapacity},
+		"cgroup_udp_token":      {name: "sb_cg_token", mapType: udpLayout.cleanupType, maxEntries: udpCapacity, flags: udpLayout.cleanupFlags},
+		"cgroup_udp_peer":       {name: "sb_cg_peer", mapType: udpLayout.peerType, maxEntries: udpLayout.peerCapacity, flags: udpLayout.peerFlags},
+		"cgroup_udp_flow":       {name: "sb_cg_flow", mapType: CiliumEBPF.LRUHash, maxEntries: udpLayout.flowCapacity},
 		"cgroup_uid_policy":     {name: "sb_cg_uid", mapType: CiliumEBPF.LPMTrie, maxEntries: uidCapacity, flags: bpfFlagNoPrealloc},
 		"cgroup_bypass_ipv4":    {name: "sb_cg_bypass4", mapType: CiliumEBPF.LPMTrie, maxEntries: maxBypassCIDRPolicyEntries, flags: bpfFlagNoPrealloc},
 		"cgroup_bypass_ipv6":    {name: "sb_cg_bypass6", mapType: CiliumEBPF.LPMTrie, maxEntries: maxBypassCIDRPolicyEntries, flags: bpfFlagNoPrealloc},
@@ -350,15 +350,41 @@ func prepareCgroupMaps(runtimeState *cgroupRuntime, capacity CgroupMapCapacity, 
 	return nil
 }
 
-func cgroupUDPMapConfiguration(enableUDP bool, socketReleaseSupported bool, capacity uint32) (CiliumEBPF.MapType, uint32, uint32) {
-	if enableUDP && !socketReleaseSupported {
-		return CiliumEBPF.LRUHash, 0, 1
+type cgroupUDPMapLayout struct {
+	cleanupType  CiliumEBPF.MapType
+	cleanupFlags uint32
+	peerType     CiliumEBPF.MapType
+	peerFlags    uint32
+	peerCapacity uint32
+	flowCapacity uint32
+}
+
+func cgroupUDPMapConfiguration(
+	enableUDP bool,
+	socketReleaseSupported bool,
+	capacity CgroupMapCapacity,
+) cgroupUDPMapLayout {
+	layout := cgroupUDPMapLayout{
+		cleanupType:  CiliumEBPF.Hash,
+		cleanupFlags: bpfFlagNoPrealloc,
+		peerType:     CiliumEBPF.Hash,
+		peerFlags:    bpfFlagNoPrealloc,
+		peerCapacity: 1,
+		flowCapacity: 1,
 	}
-	flowCapacity := uint32(1)
-	if enableUDP {
-		flowCapacity = capacity
+	if !enableUDP {
+		return layout
 	}
-	return CiliumEBPF.Hash, bpfFlagNoPrealloc, flowCapacity
+	layout.peerCapacity = capacity.UDPPeer
+	if socketReleaseSupported {
+		layout.flowCapacity = capacity.UDPFlow
+		return layout
+	}
+	layout.cleanupType = CiliumEBPF.LRUHash
+	layout.cleanupFlags = 0
+	layout.peerType = CiliumEBPF.LRUHash
+	layout.peerFlags = 0
+	return layout
 }
 
 func validateCgroupUDPCleanupMaps(runtimeState *cgroupRuntime) error {

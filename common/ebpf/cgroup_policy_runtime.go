@@ -26,6 +26,8 @@ func validateCgroupMapCapacity(capacity CgroupMapCapacity) error {
 	}{
 		{"tcp_redirect", capacity.TCPRedirect},
 		{"udp_redirect", capacity.UDPRedirect},
+		{"udp_peer", capacity.UDPPeer},
+		{"udp_flow", capacity.UDPFlow},
 		{"socket_bypass", capacity.SocketBypass},
 	} {
 		if err := validateMapCapacity("eBPF "+entry.name, entry.value); err != nil {

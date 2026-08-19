@@ -94,6 +94,8 @@ func (i *Inbound) Start(stage adapter.StartStage) error {
 				", internal_redirect_prefix=[", strings.Join(i.redirectAddressStrings(), ", "), "]",
 				", state_capacity={tcp_redirect:", i.cgroupMapCapacity.TCPRedirect,
 				", udp_redirect:", i.cgroupMapCapacity.UDPRedirect,
+				", udp_peer:", i.cgroupMapCapacity.UDPPeer,
+				", udp_flow:", i.cgroupMapCapacity.UDPFlow,
 				", socket_bypass:", socketBypassCapacity, "}",
 				", tcp_redirect_stale_timeout=", localTCPRedirectMaxAge,
 				", programs=[", strings.Join(backend.AttachedPrograms(), ", "), "]",

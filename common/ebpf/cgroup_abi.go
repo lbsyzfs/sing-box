@@ -16,6 +16,8 @@ const (
 	ProtocolUDP                   = 17
 	TCPRedirectMapCapacity        = 65536
 	UDPRedirectMapCapacity        = 65536
+	UDPPeerMapCapacity            = 16384
+	UDPFlowMapCapacity            = 16384
 	SocketBypassMapCapacity       = 65536
 	SharedNetworkMapCapacity      = 65536
 	SharedNetworkFragmentCapacity = 8192
@@ -88,6 +90,8 @@ func cgroupIPv4Redirect(prefix netip.Prefix) (uint32, uint32) {
 type CgroupMapCapacity struct {
 	TCPRedirect  uint32
 	UDPRedirect  uint32
+	UDPPeer      uint32
+	UDPFlow      uint32
 	SocketBypass uint32
 }
 
@@ -137,6 +141,8 @@ func DefaultCgroupMapCapacity() CgroupMapCapacity {
 	return CgroupMapCapacity{
 		TCPRedirect:  TCPRedirectMapCapacity,
 		UDPRedirect:  UDPRedirectMapCapacity,
+		UDPPeer:      UDPPeerMapCapacity,
+		UDPFlow:      UDPFlowMapCapacity,
 		SocketBypass: SocketBypassMapCapacity,
 	}
 }

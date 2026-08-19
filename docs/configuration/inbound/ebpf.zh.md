@@ -168,8 +168,10 @@ shared 数据路径的 IPv6；shared 使用独立的 `shared.ipv6_mode`。
 
 #### local.state_capacity
 
-本机重定向、UDP flow 和 socket-cookie 回退状态的容量。`0` 使用实现默认值
-（当前为 65536）；允许范围为 `0` 到 `1048576`。增大会占用更多锁定内核内存。
+本机重定向、UDP 缓存和 socket-cookie 回退状态的容量。`0` 使用实现默认值：
+重定向及 socket-cookie map 为 65536，connected UDP peer 与 UDP flow 缓存为
+16384。显式配置的值会应用于上述所有 map；允许范围为 `0` 到 `1048576`。
+增大会占用更多锁定内核内存。
 
 ### shared
 

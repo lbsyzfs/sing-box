@@ -180,9 +180,11 @@ exclude UID ranges written to the kernel.
 
 #### local.state_capacity
 
-Capacity for local redirect, UDP flow, and socket-cookie fallback state. `0`
-uses the implementation default (currently 65536). Valid range is 0 through
-1048576. Larger values consume more locked kernel memory.
+Capacity for local redirect, UDP cache, and socket-cookie fallback state. `0`
+uses the implementation defaults: 65536 redirect and socket-cookie entries,
+and 16384 connected-UDP peer and UDP flow-cache entries. An explicit value is
+applied to all of these maps. Valid range is 0 through 1048576. Larger values
+consume more locked kernel memory.
 
 ### shared
 
