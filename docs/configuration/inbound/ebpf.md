@@ -248,8 +248,8 @@ Client source MAC addresses to bypass. Exclude takes precedence over include.
 #### shared.state_capacity
 
 Capacity for shared proxy, bypass, and fragment state. `0` uses the
-implementation defaults: 65536 proxy entries, 8192 fragment entries, and
-65536 bypass entries when bypass rule-set or source policies are configured.
+implementation defaults: 32768 proxy entries, 8192 fragment entries, and
+16384 bypass entries when bypass rule-set or source policies are configured.
 The unused bypass cache is reduced to one entry otherwise, including when an
 explicit capacity is set. An explicit value applies to the active maps. Valid
 range is 0 through 1048576.

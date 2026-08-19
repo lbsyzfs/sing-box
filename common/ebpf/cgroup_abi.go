@@ -19,7 +19,8 @@ const (
 	UDPPeerMapCapacity            = 16384
 	UDPFlowMapCapacity            = 16384
 	SocketBypassMapCapacity       = 65536
-	SharedNetworkMapCapacity      = 65536
+	SharedNetworkProxyCapacity    = 32768
+	SharedNetworkBypassCapacity   = 16384
 	SharedNetworkFragmentCapacity = 8192
 	UDPRecoveryMapCapacity        = 4096
 	MaxConfigurableMapCapacity    = 1 << 20
@@ -115,8 +116,8 @@ type SharedNetworkMapCapacities struct {
 
 func DefaultSharedNetworkMapCapacities() SharedNetworkMapCapacities {
 	return SharedNetworkMapCapacities{
-		Proxy:    SharedNetworkMapCapacity,
-		Bypass:   SharedNetworkMapCapacity,
+		Proxy:    SharedNetworkProxyCapacity,
+		Bypass:   SharedNetworkBypassCapacity,
 		Fragment: SharedNetworkFragmentCapacity,
 	}
 }

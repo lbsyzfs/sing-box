@@ -225,8 +225,8 @@ Wi-Fi 上游共用接口名时，应使用源 CIDR 或 MAC 筛选客户端流量
 
 #### shared.state_capacity
 
-shared proxy、bypass 和分片状态容量。`0` 使用实现默认值：proxy 为 65536，
-分片为 8192；配置 bypass rule-set 或来源策略时 bypass 为 65536，否则未使用的
+shared proxy、bypass 和分片状态容量。`0` 使用实现默认值：proxy 为 32768，
+分片为 8192；配置 bypass rule-set 或来源策略时 bypass 为 16384，否则未使用的
 bypass 缓存缩减为 1（包括显式设置容量时）。显式设置的值会应用于实际启用的
 map。允许范围为 `0` 到 `1048576`。
 当代理状态持续承压或 token 预留开始失败时，sing-box 会暂时缩短孤立流清理
