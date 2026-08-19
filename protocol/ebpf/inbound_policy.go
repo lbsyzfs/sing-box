@@ -121,7 +121,8 @@ func (i *Inbound) refreshBypassRuleSetsLocked(
 		}
 		if i.sharedNetwork != nil {
 			if sharedBackend := i.sharedNetwork.sharedBackendInstance(); sharedBackend != nil {
-				if err = sharedBackend.SetBypassCIDRState(prefixes); err != nil {
+				ipv4Count, ipv6Count := backend.BypassCIDRCount()
+				if err = sharedBackend.SetBypassCIDRState(ipv4Count, ipv6Count); err != nil {
 					return false, err
 				}
 			}

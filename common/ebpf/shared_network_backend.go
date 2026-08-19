@@ -69,6 +69,8 @@ type SharedNetworkBackend struct {
 	bypassIPv6MapFD     int
 	bypassIPv4CIDR      []netip.Prefix
 	bypassIPv6CIDR      []netip.Prefix
+	bypassIPv4Count     int
+	bypassIPv6Count     int
 	includeSourceIPv4   []netip.Prefix
 	includeSourceIPv6   []netip.Prefix
 	excludeSourceIPv4   []netip.Prefix

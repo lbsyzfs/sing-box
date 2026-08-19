@@ -513,9 +513,7 @@ func prepareSharedNetworkProgramLoad(t *testing.T, cgroupBackend *CgroupBackend,
 		}); err != nil {
 			t.Fatal(err)
 		}
-	} else if err = sharedBackend.SetBypassCIDRState([]netip.Prefix{
-		netip.MustParsePrefix("198.51.100.0/24"),
-	}); err != nil {
+	} else if err = sharedBackend.SetBypassCIDRState(1, 0); err != nil {
 		t.Fatal(err)
 	}
 	if sharedBackend.control.Flags&sharedNetworkFlagBypassIPv4 == 0 {
