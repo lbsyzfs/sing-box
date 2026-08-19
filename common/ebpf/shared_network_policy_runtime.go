@@ -102,11 +102,18 @@ func populateSharedNetworkMACPolicy(mapFD int, addresses []MACAddress) error {
 }
 
 func (b *SharedNetworkBackend) UpdateBypassCIDR(prefixes []netip.Prefix) (bool, error) {
-	ipv4, ipv6, err := compileBypassCIDRPolicy(prefixes)
+	policy, err := CompileBypassCIDRPolicy(prefixes)
 	if err != nil {
 		return false, E.Cause(err, "compile shared-network bypass CIDR policy")
 	}
-	if err = checkLPMTriePolicyCompatibility("shared-network bypass CIDR", len(ipv4)+len(ipv6)); err != nil {
+	return b.UpdateCompiledBypassCIDR(policy)
+}
+
+func (b *SharedNetworkBackend) UpdateCompiledBypassCIDR(policy BypassCIDRPolicy) (bool, error) {
+	ipv4 := policy.ipv4
+	ipv6 := policy.ipv6
+	err := checkLPMTriePolicyCompatibility("shared-network bypass CIDR", len(ipv4)+len(ipv6))
+	if err != nil {
 		return false, err
 	}
 	if len(ipv4) > maxBypassCIDRPolicyEntries || len(ipv6) > maxBypassCIDRPolicyEntries {

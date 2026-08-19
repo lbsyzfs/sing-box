@@ -102,7 +102,14 @@ func (s *sharedNetwork) Start(cgroupBackend *ECommon.CgroupBackend) error {
 	}
 	s.setSharedBackend(backend)
 	if cgroupBackend == nil {
-		if _, err = backend.UpdateBypassCIDR(s.inbound.currentBypassCIDR()); err != nil {
+		policy, compileErr := s.inbound.compileBypassCIDRPolicy(s.inbound.currentBypassCIDR())
+		if compileErr != nil {
+			return E.Errors(compileErr, s.Close())
+		}
+		updateStarted := s.inbound.debug.bypassPolicyOperationStarted()
+		_, err = backend.UpdateCompiledBypassCIDR(policy)
+		s.inbound.debug.observeBypassPolicyUpdate(updateStarted, err)
+		if err != nil {
 			return E.Errors(err, s.Close())
 		}
 	} else {

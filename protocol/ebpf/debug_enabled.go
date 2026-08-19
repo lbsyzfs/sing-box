@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	ECommon "github.com/sagernet/sing-box/common/ebpf"
 	"github.com/sagernet/sing-box/log"
 	E "github.com/sagernet/sing/common/exceptions"
 )
@@ -32,6 +33,11 @@ type eBPFDebugState struct {
 	sharedAttachmentReconcile eBPFDebugTaskMetric
 	ipv6RouteProbe            eBPFDebugTaskMetric
 	runtimeStatusCollection   eBPFDebugTaskMetric
+	bypassPolicyCompile       eBPFDebugTaskMetric
+	bypassPolicyUpdate        eBPFDebugTaskMetric
+	bypassPolicyRawPrefixes   atomic.Uint64
+	bypassPolicyIPv4Prefixes  atomic.Uint64
+	bypassPolicyIPv6Prefixes  atomic.Uint64
 	localUDPBindingMiss       eBPFDebugUDPBindingMissMetric
 	sharedUDPBindingMiss      eBPFDebugUDPBindingMissMetric
 }
@@ -93,7 +99,37 @@ type eBPFDebugSnapshot struct {
 	Build          bool                             `json:"build"`
 	GoRuntime      eBPFDebugGoRuntimeSnapshot       `json:"go_runtime"`
 	Maintenance    map[string]eBPFDebugTaskSnapshot `json:"maintenance"`
+	BypassPolicy   eBPFDebugBypassPolicySnapshot    `json:"bypass_policy"`
 	UDPBindingMiss eBPFDebugUDPBindingMissSnapshot  `json:"udp_binding_miss"`
+}
+
+type eBPFDebugBypassPolicySnapshot struct {
+	RawPrefixes  uint64                `json:"raw_prefixes"`
+	IPv4Prefixes uint64                `json:"ipv4_prefixes"`
+	IPv6Prefixes uint64                `json:"ipv6_prefixes"`
+	Compile      eBPFDebugTaskSnapshot `json:"compile"`
+	Update       eBPFDebugTaskSnapshot `json:"update"`
+}
+
+func (d *eBPFDebugState) bypassPolicyOperationStarted() time.Time {
+	return time.Now()
+}
+
+func (d *eBPFDebugState) observeBypassPolicyCompile(
+	started time.Time,
+	rawPrefixes int,
+	policy ECommon.BypassCIDRPolicy,
+	err error,
+) {
+	ipv4Prefixes, ipv6Prefixes := policy.Count()
+	d.bypassPolicyRawPrefixes.Store(uint64(rawPrefixes))
+	d.bypassPolicyIPv4Prefixes.Store(uint64(ipv4Prefixes))
+	d.bypassPolicyIPv6Prefixes.Store(uint64(ipv6Prefixes))
+	d.observeTask(&d.bypassPolicyCompile, time.Since(started), err)
+}
+
+func (d *eBPFDebugState) observeBypassPolicyUpdate(started time.Time, err error) {
+	d.observeTask(&d.bypassPolicyUpdate, time.Since(started), err)
 }
 
 func (d *eBPFDebugState) observe(task string, duration time.Duration, err error) {
@@ -101,6 +137,10 @@ func (d *eBPFDebugState) observe(task string, duration time.Duration, err error)
 	if metric == nil {
 		return
 	}
+	d.observeTask(metric, duration, err)
+}
+
+func (d *eBPFDebugState) observeTask(metric *eBPFDebugTaskMetric, duration time.Duration, err error) {
 	durationNanos := uint64(max(duration.Nanoseconds(), 0))
 	metric.runs.Add(1)
 	if err != nil {
@@ -240,6 +280,13 @@ func (d *eBPFDebugState) snapshot() *eBPFDebugSnapshot {
 			ebpfDebugTaskSharedAttachmentReconcile: d.sharedAttachmentReconcile.snapshot(),
 			ebpfDebugTaskIPv6RouteProbe:            d.ipv6RouteProbe.snapshot(),
 			ebpfDebugTaskRuntimeStatusCollection:   d.runtimeStatusCollection.snapshot(),
+		},
+		BypassPolicy: eBPFDebugBypassPolicySnapshot{
+			RawPrefixes:  d.bypassPolicyRawPrefixes.Load(),
+			IPv4Prefixes: d.bypassPolicyIPv4Prefixes.Load(),
+			IPv6Prefixes: d.bypassPolicyIPv6Prefixes.Load(),
+			Compile:      d.bypassPolicyCompile.snapshot(),
+			Update:       d.bypassPolicyUpdate.snapshot(),
 		},
 		UDPBindingMiss: eBPFDebugUDPBindingMissSnapshot{
 			Local:  d.localUDPBindingMiss.snapshot(),

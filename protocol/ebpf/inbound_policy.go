@@ -7,7 +7,9 @@ import (
 	"slices"
 
 	"github.com/sagernet/sing-box/adapter"
+	ECommon "github.com/sagernet/sing-box/common/ebpf"
 	"github.com/sagernet/sing/common/control"
+	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/x/list"
 )
 
@@ -115,7 +117,13 @@ func (i *Inbound) refreshBypassRuleSetsLocked(
 		if err := backend.UpdateHostAddresses(hostAddresses); err != nil {
 			return false, err
 		}
-		updated, err := backend.UpdateBypassCIDR(prefixes)
+		policy, err := i.compileBypassCIDRPolicy(prefixes)
+		if err != nil {
+			return false, err
+		}
+		updateStarted := i.debug.bypassPolicyOperationStarted()
+		updated, err := backend.UpdateCompiledBypassCIDR(policy)
+		i.debug.observeBypassPolicyUpdate(updateStarted, err)
 		if err != nil {
 			return false, err
 		}
@@ -132,7 +140,13 @@ func (i *Inbound) refreshBypassRuleSetsLocked(
 	}
 	if i.sharedNetwork != nil {
 		if sharedBackend := i.sharedNetwork.sharedBackendInstance(); sharedBackend != nil {
-			updated, err := sharedBackend.UpdateBypassCIDR(prefixes)
+			policy, err := i.compileBypassCIDRPolicy(prefixes)
+			if err != nil {
+				return false, err
+			}
+			updateStarted := i.debug.bypassPolicyOperationStarted()
+			updated, err := sharedBackend.UpdateCompiledBypassCIDR(policy)
+			i.debug.observeBypassPolicyUpdate(updateStarted, err)
 			if err != nil {
 				return false, err
 			}
@@ -143,6 +157,16 @@ func (i *Inbound) refreshBypassRuleSetsLocked(
 	updated := !slices.Equal(i.bypassCIDR, prefixes)
 	i.bypassCIDR = slices.Clone(prefixes)
 	return updated, nil
+}
+
+func (i *Inbound) compileBypassCIDRPolicy(prefixes []netip.Prefix) (ECommon.BypassCIDRPolicy, error) {
+	started := i.debug.bypassPolicyOperationStarted()
+	policy, err := ECommon.CompileBypassCIDRPolicy(prefixes)
+	i.debug.observeBypassPolicyCompile(started, len(prefixes), policy, err)
+	if err != nil {
+		return policy, E.Cause(err, "compile eBPF bypass CIDR policy")
+	}
+	return policy, nil
 }
 
 func (i *Inbound) partitionLocalHostPrefixes(prefixes []netip.Prefix) ([]netip.Addr, []netip.Prefix) {
