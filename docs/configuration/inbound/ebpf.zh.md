@@ -182,7 +182,9 @@ shared 模式不会创建热点、DHCP、NAT、IPv6 RA 或 IP 转发，这些仍
 ==shared 或 hybrid 模式必填==
 
 客户端报文进入 TC ingress 的下游接口。接口可在启动后出现或消失，sing-box
-会自动挂载和卸载。不要选择 `lo`、上游接口或仅支持三层报文的接口。热点与
+会自动挂载和卸载。shared eBPF 程序和 map 只在首个已配置接口出现时加载；
+接口暂时消失后仍保留 backend，避免重复执行 verifier 和 map 初始化。不要选择
+`lo`、上游接口或仅支持三层报文的接口。热点与
 Wi-Fi 上游共用接口名时，应使用源 CIDR 或 MAC 筛选客户端流量。
 
 #### shared.ipv6_mode

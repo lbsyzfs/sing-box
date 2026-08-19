@@ -197,6 +197,9 @@ Those remain the responsibility of Android, Linux, or OpenWrt.
 
 Downstream interfaces where client packets enter TC ingress. Interfaces may
 appear or disappear after startup; sing-box attaches and detaches automatically.
+Shared-network eBPF programs and maps are loaded only when a configured
+interface first becomes available, then kept loaded across temporary interface
+loss to avoid repeated verifier and map setup work.
 Do not select `lo`, an upstream interface, or a layer-3-only interface. When a
 hotspot and Wi-Fi upstream share an interface name, restrict clients with
 source CIDR or MAC policy.
