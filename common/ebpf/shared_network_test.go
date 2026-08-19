@@ -58,6 +58,18 @@ func TestSharedNetworkABI(t *testing.T) {
 	}
 }
 
+func TestSharedSourceMACMapCapacity(t *testing.T) {
+	for entries, expected := range map[int]uint32{
+		0: 1,
+		1: 1,
+		8: 8,
+	} {
+		if capacity := sharedSourceMACMapCapacity(entries); capacity != expected {
+			t.Fatalf("unexpected source MAC map capacity for %d entries: %d", entries, capacity)
+		}
+	}
+}
+
 func TestSharedNetworkBypassFlowCacheRequired(t *testing.T) {
 	if sharedNetworkBypassFlowCacheRequired(0) {
 		t.Fatal("empty policy unexpectedly requires bypass-flow cache lookups")
