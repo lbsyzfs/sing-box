@@ -5,11 +5,12 @@ on:
 
 jobs:
   build:
+    name: Build (${{ matrix.target.goarch }}, ${{ matrix.variant.name }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        include:
+        target:
           - goarch: arm64
             compiler: aarch64-linux-android35-clang
           - goarch: arm
@@ -19,8 +20,15 @@ jobs:
             compiler: x86_64-linux-android35-clang
           - goarch: "386"
             compiler: i686-linux-android35-clang
+        variant:
+          - name: release
+            artifact_suffix: with-ebpf
+            extra_tags: ""
+          - name: debug
+            artifact_suffix: with-ebpf-debug
+            extra_tags: ",ebpf_debug"
     env:
-      TAGS: with_gvisor,with_quic,with_dhcp,with_utls,with_clash_api,with_ebpf,ebpf_debug,badlinkname,tfogo_checklinkname0
+      BASE_TAGS: with_gvisor,with_quic,with_dhcp,with_utls,with_clash_api,with_ebpf,badlinkname,tfogo_checklinkname0
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -42,15 +50,16 @@ jobs:
         env:
           CGO_ENABLED: "1"
           GOOS: android
-          GOARCH: ${{ matrix.goarch }}
-          GOARM: ${{ matrix.goarm }}
+          GOARCH: ${{ matrix.target.goarch }}
+          GOARM: ${{ matrix.target.goarm }}
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          CC: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.compiler }}
+          CC: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.target.compiler }}
         run: |
+          export TAGS="${BASE_TAGS}${{ matrix.variant.extra_tags }}"
           make build
 
       - name: Upload
         uses: actions/upload-artifact@v7
         with:
-          name: sing-box-android-${{ matrix.goarch }}-with-ebpf
+          name: sing-box-android-${{ matrix.target.goarch }}-${{ matrix.variant.artifact_suffix }}
           path: sing-box
